@@ -1,0 +1,114 @@
+(async () => {
+  console.log("⚙️ Humanized OTP typer — React-safe + red dot + strict Join New Sora selector");
+
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const codeLen = 6;
+  const maxAttempts = 5;
+  const baseDelayMs = 900;
+  window._stopRandomOtp = false;
+  window._triedCodes = [];
+
+  const rand = (a,b)=>a+Math.random()*(b-a);
+  const wait = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+  async function humanClick(btn){
+    if(!btn)return;
+    btn.scrollIntoView({behavior:"smooth",block:"center"});
+    const rect=btn.getBoundingClientRect();
+    const x=rect.left+rand(5,rect.width-5);
+    const y=rect.top+rand(5,rect.height-5);
+    const dot=document.createElement("div");
+    Object.assign(dot.style,{
+      position:"fixed",left:`${x-4}px`,top:`${y-4}px`,
+      width:"8px",height:"8px",borderRadius:"50%",
+      background:"red",opacity:"0.8",zIndex:999999,
+      pointerEvents:"none",transition:"opacity 0.5s ease-out"
+    });
+    document.body.appendChild(dot);
+    const opts={bubbles:true,cancelable:true,clientX:x,clientY:y};
+    for(const ev of ["mousemove","pointerdown","mousedown","mouseup","pointerup","click"]){
+      try{btn.dispatchEvent(new PointerEvent(ev,opts));}
+      catch{btn.dispatchEvent(new MouseEvent(ev,opts));}
+      await wait(rand(20,80));
+    }
+    setTimeout(()=>{dot.style.opacity="0";setTimeout(()=>dot.remove(),500);},200);
+    await wait(rand(100,250));
+  }
+
+  function setReactValue(el, value) {
+    const last = el.value;
+    el.value = value;
+    const tracker = el._valueTracker;
+    if (tracker) tracker.setValue(last);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  async function humanTypeReact(el, text){
+    el.focus();
+    el.value = "";
+    setReactValue(el, "");
+    for(const ch of text){
+      const current = el.value + ch;
+      el.dispatchEvent(new KeyboardEvent("keydown",{bubbles:true,key:ch}));
+      el.dispatchEvent(new InputEvent("input",{bubbles:true,data:ch,inputType:"insertText"}));
+      setReactValue(el, current);
+      el.dispatchEvent(new KeyboardEvent("keyup",{bubbles:true,key:ch}));
+      await wait(rand(80,200));
+    }
+    el.blur();
+    el.dispatchEvent(new Event("change",{bubbles:true}));
+  }
+
+  async function findWithRetry(selector,filterFn=()=>true,maxTry=5){
+    for(let i=0;i<maxTry;i++){
+      const el=[...document.querySelectorAll(selector)].find(filterFn);
+      if(el)return el;
+      await wait(rand(300,700));
+    }
+    return null;
+  }
+
+  const randCode=()=>Array.from({length:codeLen},()=>charset[Math.floor(Math.random()*charset.length)]).join("");
+
+  for(let i=1;i<=maxAttempts;i++){
+    if(window._stopRandomOtp)break;
+    console.log(`\n▶ Attempt ${i}/${maxAttempts}`);
+
+    // 1️⃣ try “Enter invite code”, but continue even if missing
+    const inviteBtn = await findWithRetry("button",b=>/enter.*invite.*code/i.test(b.textContent||""));
+    if(inviteBtn){
+      await humanClick(inviteBtn);
+      console.log("Clicked: Enter invite code");
+      await wait(rand(800,1400));
+    } else {
+      console.warn("Invite button not found — continuing to next step.");
+    }
+
+    // 2️⃣ input field
+    const input = await findWithRetry("input",el=>
+      /code|invite|otp/i.test(el.placeholder||"")||el.dataset.inputOtp==="true"
+    );
+    if(!input){ console.warn("Input not found, skipping this round."); continue; }
+
+    // 3️⃣ correct Join New Sora button
+    const joinBtn = await findWithRetry("button",b=>{
+      const t=(b.textContent||"").trim();
+      const cls=b.className||"";
+      return /join.*sora/i.test(t)&&cls.includes("bg-token-bg-inverse")&&cls.includes("w-full");
+    });
+    if(!joinBtn){ console.warn("Join button not found, skipping this round."); continue; }
+
+    // 4️⃣ type + click
+    const code = randCode();
+    window._triedCodes.push(code);
+    console.log("Typing code:", code);
+    await humanTypeReact(input, code);
+
+    await wait(rand(300,800));
+    await humanClick(joinBtn);
+    console.log("Clicked: Join New Sora");
+    await wait(rand(baseDelayMs*0.8, baseDelayMs*1.6));
+  }
+
+  console.log("✅ Done. Tried:", window._triedCodes);
+})();
